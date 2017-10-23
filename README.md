@@ -1,7 +1,7 @@
 # Installation
 ## clone from git
 ```
-git clone git@git.eu.boehringer.com:menden/nanoR.git
+git clone https://github.com/KevinMenden/nanoR.git
 ```
 ## R install 
 ```
