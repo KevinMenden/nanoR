@@ -1,0 +1,131 @@
+---
+title: "NanoString Analysis Results"
+author: "nanoR"
+date: "19 07 2017"
+output: html_document
+params:
+  nano:
+    value: x
+  design:
+    value: x
+  bm:
+    value: x
+  norm.method:
+    value: x
+  pcm:
+    value: x
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Field of View count plot
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+nano <- params$nano
+design <- params$design
+
+design <- design[design$include == 1,]
+counts <- nano$counts
+counts <- removeAnnot(counts)
+counts <- counts[,colnames(counts) %in% design$file]
+design <- design[with(design, order(file)),]
+counts <- counts[, with(counts, order(colnames(counts)))]
+nano$counts <- cbind(nano$counts[,1:3], counts)
+
+groups <- as.character(design$group)
+
+plotFOV(nano)
+```
+
+### Binding Density Plot
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+plotBindingDensities(nano)
+```
+
+### Boxplot prior to normalization
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+plotGroupBoxplot(nano, groups = groups)
+```
+
+
+### Positive Scaling factors
+Counts have been background corrected and positive control normalized
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+nano <- nsBackgroundCorrect(nano, bm = params$bm, sd.factor = 2)
+nano <- nsPositiveControlNormalization(nano, pcm = params$pcm)
+plotPositiveScalingFactors(nano)
+```
+
+### RNA content normalization factors and boxplot after normalization
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+nano <- nsNormalize(nano, method=params$norm.method)
+plotNormFactors(nano)
+plotGroupBoxplot(nano, groups = groups)
+#plotDistanceRatio(nano, groups)
+```
+
+### Dendrogram
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+plotDendrogram(nano)
+```
+
+
+### Principal Component Analysis
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+pcas <- plotPCA(nano, groups=groups)
+pcas$p1
+pcas$p2
+pcas$pc3
+```
+
+### Heatmap
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+plotHeatmapExpression(nano, groups, countCutoff = 5)
+```
+
+
+### Limma Analysis
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+  counts <- nano$counts[grepl("Endogenous", nano$counts$CodeClass),]
+  counts <- removeAnnot(counts)
+  no.cols <- ncol(counts)
+  counts.log2 <- log2(counts+1)
+  conts <- design$comparison[design$comparison != ""]
+  
+  meanCountCutoff = 5
+  
+  mean.counts <- apply(X = counts, MARGIN = 1, FUN = mean)
+  expressed <- mean.counts >= meanCountCutoff
+  counts.expressed <- counts[expressed,]
+  logcounts.expressed <- counts.log2[expressed,]
+
+  logcounts.matrix <- as.matrix(logcounts.expressed)
+  counts.matrix <- as.matrix(counts.expressed)
+  
+  # Linear model fitting and DE analysis
+  G <- factor(groups)
+  dm <- model.matrix(~ -1 + G)
+  colnames(dm) <- levels(G)
+
+  contrasts <- makeContrasts(contrasts = conts, levels = dm)
+
+  fit <- lmFit(logcounts.expressed, dm)
+  fit2 <- contrasts.fit(fit = fit, contrasts = contrasts)
+  fit2 <- eBayes(fit2)
+  res <- decideTests(fit2)
+  summary(res)
+  
+  conts <- as.character(conts)
+  for (cont in conts){
+    res <- topTable(fit2, coef=cont, number=Inf, sort.by="P")
+
+    res$threshold <- as.factor(abs(res$logFC) > 1 & res$adj.P.Val < 0.05)
+    res$comparison <- cont
+    res$geneID <- rownames(res)
+
+    vp <- volcanoPlot(dge.result = res, contrast = cont)
+    print(vp)
+  }
+```

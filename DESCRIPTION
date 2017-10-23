@@ -1,0 +1,11 @@
+Package: nanoR
+Type: Package
+Title: Analysis of NanoString data
+Version: 0.1.0
+Authors@R: c(person("Kevin", "Menden", email = "kevin.menden@t-online.de", role = c("aut", "cre")),person("Holger", "Klein", email = "holger.klein@boehringer-ingelheim.com", role="aut"))
+Description: Quality control, normalization and analysis of NanoString data.
+License: GPL-2
+LazyData: TRUE
+Depends: ggplot2, limma, reshape2
+Imports: pheatmap
+RoxygenNote: 5.0.1
